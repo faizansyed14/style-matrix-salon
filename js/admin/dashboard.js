@@ -123,7 +123,7 @@ function updateTransactionsTable(transactions) {
     const tbody = document.getElementById('transactionsTable');
     
     if (transactions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">No transactions today</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">No transactions today</td></tr>';
         return;
     }
     
@@ -153,6 +153,16 @@ function updateTransactionsTable(transactions) {
                 <td>${paymentBadge}</td>
                 <td>${tipsDisplay}</td>
                 <td><strong>${formatCurrency(transaction.total)}</strong></td>
+                <td>
+                    <button 
+                        class="btn btn-danger btn-sm" 
+                        onclick="deleteTransaction('${transaction.id}')"
+                        title="Delete transaction"
+                        style="padding: 4px 12px; font-size: 12px;"
+                    >
+                        Delete
+                    </button>
+                </td>
             </tr>
         `;
     }).join('');
@@ -165,6 +175,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-refresh every 30 seconds
     refreshInterval = setInterval(loadTodayData, 30000);
 });
+
+// Delete transaction (admin only)
+async function deleteTransaction(transactionId) {
+    const confirmed = await confirmAction(
+        'Are you sure you want to delete this transaction? This action cannot be undone and will also delete all associated transaction items.',
+        'Delete Transaction'
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    try {
+        // Delete the transaction (transaction_items will be deleted automatically due to CASCADE)
+        const { error } = await window.supabaseClient
+            .from('transactions')
+            .delete()
+            .eq('id', transactionId);
+        
+        if (error) throw error;
+        
+        showToast('Transaction deleted successfully', 'success');
+        
+        // Reload today's data to refresh the table
+        await loadTodayData();
+    } catch (error) {
+        console.error('Error deleting transaction:', error);
+        showToast('Error deleting transaction: ' + error.message, 'error');
+    }
+}
+
+// Make deleteTransaction globally accessible
+window.deleteTransaction = deleteTransaction;
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
